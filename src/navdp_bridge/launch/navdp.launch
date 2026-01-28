@@ -1,5 +1,5 @@
 <launch>
-  <arg name="checkpoint" default="/home/b2a/prjcwl/navdp_ros/navdp-weights.ckpt"/>
+  <arg name="checkpoint" default="/home/b2a/prjcwl/navdp_ros/checkpoints/navdp-weights.ckpt"/>
   <arg name="use_rviz" default="true" doc="Launch RViz for visualization"/>
   <param name="/use_sim_time" value="false" />
   

@@ -58,6 +58,8 @@ class NavDPNode:
         cx = rospy.get_param("~camera_cx", None)
         cy = rospy.get_param("~camera_cy", None)
         
+        rospy.loginfo(f"Camera parameters from launch: fx={fx}, fy={fy}, cx={cx}, cy={cy}")
+        
         # Current status
         self.bridge = CvBridge()
         self.latest_rgb = None
@@ -115,10 +117,14 @@ class NavDPNode:
 
     def _init_agent(self):
         if self.agent is not None:
+            rospy.loginfo("Agent already initialized, skipping")
             return
         
         try:
             rospy.loginfo(f"✓ Initializing NavDP agent on {self.device}...")
+            rospy.loginfo(f"Checkpoint path: {self.checkpoint}")
+            rospy.loginfo(f"Intrinsics shape: {self.intrinsics.shape if self.intrinsics is not None else 'None'}")
+            
             self.agent = NavDP_Agent(
                 image_intrinsic=self.intrinsics,
                 image_size=224,
@@ -134,7 +140,9 @@ class NavDPNode:
             rospy.loginfo("✓✓ NavDP agent initialized successfully and READY!")
             rospy.loginfo("NavDP Agent Loaded and Reset. Ready for goals.")
         except Exception as e:
+            import traceback
             rospy.logerr(f"Error initializing NavDP Agent: {e}")
+            rospy.logerr(traceback.format_exc())
 
     def rgb_cb(self, msg):
         try:
@@ -302,8 +310,8 @@ class NavDPNode:
 
         ma = MarkerArray()
         
-        max_val = np.max(vals)
-        min_val = np.min(vals)
+        # 找出最佳轨迹的索引（最高score）
+        best_idx = np.argmax(vals)
 
         for i, traj in enumerate(trajs):
             marker = Marker()
@@ -313,15 +321,20 @@ class NavDPNode:
             marker.id = i
             marker.type = Marker.LINE_STRIP
             marker.action = Marker.ADD
-            marker.scale.x = 0.03 # Thin lines
             
-            score = vals[i]
-            r, g, b = get_color(score, min_val, max_val)
-            
-            marker.color.a = 0.5
-            marker.color.r = r
-            marker.color.g = g
-            marker.color.b = b
+            # 最佳轨迹用红色粗线，其他用灰色细线
+            if i == best_idx:
+                marker.scale.x = 0.05  # 粗线
+                marker.color.a = 0.8
+                marker.color.r = 1.0
+                marker.color.g = 0.0
+                marker.color.b = 0.0
+            else:
+                marker.scale.x = 0.02  # 细线
+                marker.color.a = 0.3
+                marker.color.r = 0.5
+                marker.color.g = 0.5
+                marker.color.b = 0.5
             
             # 将每个轨迹点转换到世界坐标系
             for pt in traj:
