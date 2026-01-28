@@ -1,0 +1,7 @@
+numpy
+rospy
+tf
+cv_bridge
+cvxpy
+osqp
+requests

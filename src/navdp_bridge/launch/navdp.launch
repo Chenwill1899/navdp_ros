@@ -1,0 +1,47 @@
+<launch>
+  <arg name="checkpoint" default="/home/b2a/prjcwl/navdp_ros/navdp-weights.ckpt"/>
+  <arg name="use_rviz" default="true" doc="Launch RViz for visualization"/>
+  <param name="/use_sim_time" value="false" />
+  
+  <!-- NavDP Inference Node: 输入 RGB + Depth，输出预测轨迹 -->
+  <node pkg="navdp_bridge" type="navdp_node.py" name="navdp_node" output="screen">
+    <!-- 强制加载系统 libffi.so.7 解决 Python 依赖冲突 -->
+    <env name="LD_PRELOAD" value="/usr/lib/aarch64-linux-gnu/libffi.so.7"/>
+    <param name="checkpoint" value="$(arg checkpoint)"/>
+    <param name="stop_threshold" value="0.5"/>
+    <param name="device" value="cuda:0"/>
+    
+    <!-- 相机内参 (从 /camera/color/camera_info 获取) -->
+    <param name="camera_fx" value="601.10791015625"/>
+    <param name="camera_fy" value="599.9105224609375"/>
+    <param name="camera_cx" value="321.2240905761719"/>
+    <param name="camera_cy" value="249.41986083984375"/>
+  </node>
+
+  <!-- RViz Visualization -->
+  <group if="$(arg use_rviz)">
+    <node pkg="rviz" type="rviz" name="navdp_rviz" 
+          args="-d $(find navdp_bridge)/launch/navdp_rviz.rviz" 
+          output="screen">
+      <!-- 方案 B 关键配置：强制使用软件渲染，防止 SSH X11 转发时的 OpenGL 崩溃 -->
+      <env name="LIBGL_ALWAYS_SOFTWARE" value="1"/>
+    </node>
+  </group>
+
+  <!-- Controller (暂时注释，后续可启用) -->
+  <!-- 
+  <arg name="controller" default="mpc" doc="mcp or pure_pursuit"/>
+  
+  <group if="$(eval controller == 'mpc')">
+    <node pkg="navdp_bridge" type="mpc_controller.py" name="mpc_controller" output="screen">
+        <param name="dt" value="0.1"/>
+        <param name="horizon" value="10"/>
+    </node>
+  </group>
+
+  <group if="$(eval controller == 'pure_pursuit')">
+    <node pkg="navdp_bridge" type="pure_pursuit.py" name="pure_pursuit" output="screen">
+    </node>
+  </group>
+  -->
+</launch>

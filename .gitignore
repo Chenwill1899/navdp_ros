@@ -1,0 +1,44 @@
+# ROS build artifacts
+build/
+devel/
+install/
+.catkin_workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.Python
+
+# Model weights (large files)
+*.ckpt
+*.pth
+*.pt
+*.weights
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Test results
+test_results/
+
+# Backup files
+*~
+*.bak
+*.orig
