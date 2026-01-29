@@ -162,6 +162,12 @@ class NavDPNode:
             else:
                 rospy.logwarn_throttle(10, f"Unsupported depth encoding: {msg.encoding}")
                 return
+            
+            # 清理深度图中的NaN和无穷大值
+            cv_depth = np.nan_to_num(cv_depth, nan=0.0, posinf=10.0, neginf=0.0)
+            # 限制深度范围到0-10米
+            cv_depth = np.clip(cv_depth, 0.0, 10.0)
+            
             self.latest_depth = cv_depth
             rospy.loginfo_once(f"✓ Depth callback working: shape={cv_depth.shape}, range=[{cv_depth.min():.2f}, {cv_depth.max():.2f}]m")
         except CvBridgeError as e:
@@ -174,22 +180,9 @@ class NavDPNode:
             self.agent.reset_env(0) 
 
     def odom_cb(self, msg):
-        """存储最新的里程计信息并发布TF变换"""
+        """存储最新的里程计信息"""
         self.current_odom = msg
         rospy.loginfo_once(f"✓ Odometry callback working: frame={msg.header.frame_id}")
-        
-        # 从Odometry消息发布TF: map -> base_link
-        # Odometry消息包含机器人在世界坐标系中的位姿
-        pos = msg.pose.pose.position
-        ori = msg.pose.pose.orientation
-        
-        self.tf_broadcaster.sendTransform(
-            (pos.x, pos.y, pos.z),
-            (ori.x, ori.y, ori.z, ori.w),
-            msg.header.stamp,
-            "base_link",  # 机器人坐标系
-            "map"  # 世界坐标系（静止）
-        )
 
     def get_goal_in_robot_frame(self):
         """将世界坐标系的目标点转换到相机坐标系"""
@@ -393,18 +386,21 @@ class NavDPNode:
         rgb_input = self.latest_rgb[np.newaxis, ...].astype(np.uint8)
         depth_input = self.latest_depth[np.newaxis, :, :, np.newaxis].astype(np.float32)
         
+        # 首先清理深度图中的NaN和无穷大值
+        depth_input = np.nan_to_num(depth_input, nan=0.0, posinf=10.0, neginf=0.0)
+        # 限制深度范围到0-10米
+        depth_input = np.clip(depth_input, 0.0, 10.0)
+        
         # 调试：打印输入形状和统计信息
         rospy.loginfo_throttle(10, f"Input shapes - RGB: {rgb_input.shape}, Depth: {depth_input.shape}, Goal: {goal_input.shape}")
         rospy.loginfo_throttle(10, f"RGB range: [{rgb_input.min()}, {rgb_input.max()}], Depth range: [{depth_input.min():.2f}, {depth_input.max():.2f}]")
+        rospy.loginfo_throttle(10, f"Depth stats - mean: {depth_input.mean():.2f}, std: {depth_input.std():.2f}, zeros: {(depth_input==0).sum()}")
         
-        # 检查NaN和无效值
+        # 检查NaN和无效值（在清理之后）
         if np.isnan(rgb_input).any() or np.isnan(depth_input).any() or np.isnan(goal_input).any():
-            rospy.logerr("Invalid input: NaN detected")
-            return
-        
-        # 限制深度范围
-        depth_input = np.clip(depth_input, 0.0, 10.0)
-        depth_input = np.nan_to_num(depth_input, nan=0.0, posinf=10.0, neginf=0.0) 
+            rospy.logerr("Invalid input: NaN detected after cleaning")
+            rospy.logerr(f"RGB NaN: {np.isnan(rgb_input).sum()}, Depth NaN: {np.isnan(depth_input).sum()}, Goal NaN: {np.isnan(goal_input).sum()}")
+            return 
         
         try:
             # Output from `step_pointgoal`: good_trajectory[:,0], all_trajectory, all_values, trajectory_mask

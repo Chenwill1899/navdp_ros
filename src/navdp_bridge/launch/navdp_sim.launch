@@ -1,0 +1,38 @@
+<launch>
+  <!-- NavDP for Gazebo Simulation -->
+  <!-- Start simulation separately: roslaunch scout_gazebo_sim scout_empty_world.launch -->
+  
+  <!-- Set simulation time -->
+  <param name="/use_sim_time" value="true" />
+  
+  <!-- Publish static TF from map to odom -->
+  <node pkg="tf" type="static_transform_publisher" name="map_to_odom" 
+        args="0 0 0 0 0 0 map odom 100" />
+  
+  <!-- NavDP checkpoint path -->
+  <arg name="checkpoint" default="/home/b2a/prjcwl/navdp_ros/checkpoints/navdp-weights.ckpt"/>
+  
+  <!-- NavDP Inference Node -->
+  <node pkg="navdp_bridge" type="navdp_node.py" name="navdp_node" output="screen">
+    <!-- Force load system libffi.so.7 to resolve Python dependency conflicts -->
+    <env name="LD_PRELOAD" value="/usr/lib/aarch64-linux-gnu/libffi.so.7"/>
+    <param name="checkpoint" value="$(arg checkpoint)"/>
+    <param name="stop_threshold" value="0.5"/>
+    <param name="device" value="cuda:0"/>
+    
+    <!-- Camera intrinsics (matching simulation camera) -->
+    <param name="camera_fx" value="554.254691191187"/>
+    <param name="camera_fy" value="554.254691191187"/>
+    <param name="camera_cx" value="320.5"/>
+    <param name="camera_cy" value="240.5"/>
+    
+    <!-- Remap topics to simulation topics -->
+    <remap from="/camera/color/image_raw" to="/camera/color/image_raw"/>
+    <remap from="/camera/aligned_depth_to_color/image_raw" to="/camera/depth/image_raw"/>
+    <remap from="/Odometry" to="/odom"/>
+  </node>
+
+  <!-- RViz Visualization -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find scout_description)/rviz/navigation.rviz" output="screen"/>
+
+</launch>
